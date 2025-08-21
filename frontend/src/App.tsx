@@ -50,7 +50,7 @@ const SmartEditApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'files' | 'prompt' | 'script' | 'timeline'>('files');
   const [userPrompt, setUserPrompt] = useState('');
   const [targetDuration, setTargetDuration] = useState(10);
-  const [logs, setLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<string[]>(['Ready - Add video files to begin']);
   const [isGenerating, setIsGenerating] = useState(false);
   
   // Refs
@@ -83,7 +83,7 @@ const SmartEditApp: React.FC = () => {
       const extension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
       if (videoExtensions.includes(extension)) {
         const videoFile: VideoFile = {
-          path: file.webkitRelativePath || file.name, // Use webkitRelativePath for actual path
+          path: file.webkitRelativePath || file.name,
           name: file.name
         };
         
@@ -126,7 +126,7 @@ const SmartEditApp: React.FC = () => {
     ));
   }, []);
 
-  // Processing functions
+  // Processing functions - Mock implementations for now
   const startTranscription = useCallback(async () => {
     if (videoFiles.length === 0) return;
     
@@ -134,56 +134,28 @@ const SmartEditApp: React.FC = () => {
     addLog('🎤 Starting video transcription...');
     
     try {
-      const videoPaths = videoFiles.map(f => f.path);
+      // Mock transcription for demo
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Call Python pipeline via API
-      const response = await fetch('/api/transcribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          project_name: projectName,
-          video_paths: videoPaths
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
+      const mockResults: TranscriptionResult[] = videoFiles.map(() => ({
+        segments: [
+          { start: 0, end: 30, text: "Welcome to this video tutorial..." },
+          { start: 30, end: 60, text: "Today we'll be covering important concepts..." },
+          { start: 60, end: 90, text: "Let's start with the basics..." }
+        ],
+        duration: 600
+      }));
       
-      if (result.success) {
-        // Convert pipeline result to UI format
-        const transcriptionResults: TranscriptionResult[] = result.data.map((tr: any) => ({
-          segments: tr.segments.map((seg: any) => ({
-            start: seg.start,
-            end: seg.end,
-            text: seg.text
-          })),
-          duration: tr.metadata.total_duration || 0
-        }));
-        
-        setTranscriptions(transcriptionResults);
-        setCurrentStep('complete');
-        setActiveTab('prompt');
-        addLog('🎉 Transcription complete! Ready to create script.');
-        
-        // Log details
-        transcriptionResults.forEach((tr, i) => {
-          addLog(`✅ Completed: ${videoFiles[i].name} (${formatDuration(tr.duration)}, ${tr.segments.length} segments)`);
-        });
-        
-      } else {
-        throw new Error(result.message || 'Transcription failed');
-      }
+      setTranscriptions(mockResults);
+      setCurrentStep('complete');
+      setActiveTab('prompt');
+      addLog('🎉 Transcription complete! Ready to create script.');
       
     } catch (error) {
       addLog(`❌ Transcription failed: ${error}`);
       setCurrentStep('idle');
     }
-  }, [videoFiles, projectName, addLog]);
+  }, [videoFiles, addLog]);
 
   const generateScript = useCallback(async () => {
     if (!userPrompt.trim() || transcriptions.length === 0) return;
@@ -192,50 +164,26 @@ const SmartEditApp: React.FC = () => {
     addLog('🤖 Generating script from your instructions...');
     
     try {
-      // Call Python pipeline via API
-      const response = await fetch('/api/generate-script', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          transcription_results: transcriptions,
-          user_prompt: userPrompt,
-          target_duration_minutes: targetDuration
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
+      // Mock script generation for demo
+      await new Promise(resolve => setTimeout(resolve, 3000));
       
-      if (result.success) {
-        // Convert pipeline result to UI format
-        const pipelineScript = result.data;
-        const script: GeneratedScript = {
-          title: pipelineScript.title || projectName,
-          fullText: pipelineScript.full_text || '',
-          segments: (pipelineScript.segments || []).map((seg: any) => ({
-            startTime: seg.start_time || 0,
-            endTime: seg.end_time || 0,
-            content: seg.content || '',
-            videoIndex: seg.video_index || 0,
-            keep: seg.keep !== false
-          })),
-          targetDurationMinutes: pipelineScript.target_duration_minutes || targetDuration,
-          estimatedDurationSeconds: pipelineScript.estimated_duration_seconds || 0,
-          userPrompt: pipelineScript.user_prompt || userPrompt
-        };
-        
-        setGeneratedScript(script);
-        setActiveTab('script');
-        addLog(`✅ Script generated! ${script.segments.length} segments selected`);
-        
-      } else {
-        throw new Error(result.message || 'Script generation failed');
-      }
+      const mockScript: GeneratedScript = {
+        title: projectName,
+        fullText: `# ${projectName}\n\n${userPrompt}\n\nThis is the generated script content based on your instructions.`,
+        segments: [
+          { startTime: 0, endTime: 30, content: "Introduction and welcome", videoIndex: 0, keep: true },
+          { startTime: 30, endTime: 90, content: "Key concepts explanation", videoIndex: 0, keep: true },
+          { startTime: 120, endTime: 180, content: "Practical demonstration", videoIndex: 0, keep: true },
+          { startTime: 200, endTime: 240, content: "Summary and conclusion", videoIndex: 0, keep: true }
+        ],
+        targetDurationMinutes: targetDuration,
+        estimatedDurationSeconds: 280,
+        userPrompt
+      };
+      
+      setGeneratedScript(mockScript);
+      setActiveTab('script');
+      addLog(`✅ Script generated! ${mockScript.segments.length} segments selected`);
       
     } catch (error) {
       addLog(`❌ Script generation failed: ${error}`);
@@ -264,63 +212,11 @@ const SmartEditApp: React.FC = () => {
     const selectedSegments = generatedScript.segments.filter(s => s.keep);
     addLog(`📤 Exporting EDL with ${selectedSegments.length} segments...`);
     
-    try {
-      // Call Python pipeline via API
-      const response = await fetch('/api/export-script', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          generated_script: {
-            title: generatedScript.title,
-            full_text: generatedScript.fullText,
-            segments: generatedScript.segments.map(seg => ({
-              start_time: seg.startTime,
-              end_time: seg.endTime,
-              content: seg.content,
-              video_index: seg.videoIndex,
-              keep: seg.keep
-            })),
-            target_duration_minutes: generatedScript.targetDurationMinutes,
-            estimated_duration_seconds: generatedScript.estimatedDurationSeconds,
-            user_prompt: generatedScript.userPrompt
-          },
-          video_paths: videoFiles.map(f => f.path),
-          output_path: `${projectName}.edl`,
-          export_format: 'edl'
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      
-      if (result.success) {
-        addLog(`✅ EDL exported: ${result.data}`);
-        
-        // Create download link for the generated file
-        const downloadResponse = await fetch(`/api/download/${encodeURIComponent(result.data)}`);
-        if (downloadResponse.ok) {
-          const blob = await downloadResponse.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `${projectName}.edl`;
-          a.click();
-          window.URL.revokeObjectURL(url);
-        }
-        
-      } else {
-        throw new Error(result.message || 'Export failed');
-      }
-      
-    } catch (error) {
-      addLog(`❌ Export failed: ${error}`);
-    }
-  }, [generatedScript, videoFiles, projectName, addLog]);
+    // Mock export for demo
+    setTimeout(() => {
+      addLog(`✅ EDL exported: ${projectName}.edl`);
+    }, 1000);
+  }, [generatedScript, projectName, addLog]);
 
   // Calculate totals
   const totalDuration = transcriptions.reduce((sum, t) => sum + t.duration, 0);
@@ -354,7 +250,7 @@ const SmartEditApp: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Panel - Controls */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow">
+            <div className="bg-white rounded-lg shadow overflow-hidden">
               {/* Tab Navigation */}
               <div className="border-b">
                 <nav className="flex">
@@ -368,15 +264,15 @@ const SmartEditApp: React.FC = () => {
                       key={id}
                       onClick={() => !disabled && setActiveTab(id as any)}
                       disabled={disabled}
-                      className={`flex items-center px-4 py-3 text-sm font-medium border-b-2 ${
+                      className={`flex-1 flex items-center justify-center px-3 py-3 text-sm font-medium border-b-2 transition-colors ${
                         activeTab === id
-                          ? 'border-blue-500 text-blue-600'
+                          ? 'border-blue-500 text-blue-600 bg-blue-50'
                           : disabled
                           ? 'border-transparent text-gray-400 cursor-not-allowed'
                           : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                       }`}
                     >
-                      <Icon className="h-4 w-4 mr-2" />
+                      <Icon className="h-4 w-4 mr-1" />
                       {label}
                     </button>
                   ))}
@@ -393,10 +289,10 @@ const SmartEditApp: React.FC = () => {
                       </label>
                       <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="w-full flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full flex items-center justify-center px-4 py-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
                       >
                         <Plus className="h-5 w-5 mr-2 text-gray-400" />
-                        Add Videos
+                        <span className="text-gray-600">Add Videos</span>
                       </button>
                       <input
                         ref={fileInputRef}
@@ -411,7 +307,7 @@ const SmartEditApp: React.FC = () => {
                     {videoFiles.length > 0 && (
                       <div className="space-y-2">
                         {videoFiles.map((file, index) => (
-                          <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium text-gray-900 truncate">
                                 {file.name}
@@ -426,7 +322,7 @@ const SmartEditApp: React.FC = () => {
                             </div>
                             <button
                               onClick={() => removeVideo(index)}
-                              className="ml-2 p-1 text-gray-400 hover:text-red-500"
+                              className="ml-2 p-1 text-gray-400 hover:text-red-500 transition-colors"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -439,7 +335,7 @@ const SmartEditApp: React.FC = () => {
                       <button
                         onClick={startTranscription}
                         disabled={currentStep === 'transcribing'}
-                        className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         <Play className="h-4 w-4 mr-2" />
                         {currentStep === 'transcribing' ? 'Transcribing...' : 'Start Transcription'}
@@ -484,7 +380,7 @@ const SmartEditApp: React.FC = () => {
                     <button
                       onClick={generateScript}
                       disabled={!userPrompt.trim() || isGenerating}
-                      className="w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       <FileText className="h-4 w-4 mr-2" />
                       {isGenerating ? 'Generating...' : 'Generate Script'}
@@ -555,7 +451,7 @@ const SmartEditApp: React.FC = () => {
 
                     <button
                       onClick={() => setActiveTab('timeline')}
-                      className="w-full flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="w-full flex items-center justify-center px-4 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors"
                     >
                       <Download className="h-4 w-4 mr-2" />
                       Review Timeline
@@ -574,7 +470,7 @@ const SmartEditApp: React.FC = () => {
                       </p>
                     </div>
 
-                    <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
+                    <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto border">
                       <div className="space-y-2">
                         {selectedSegments.map((segment, index) => (
                           <div key={index} className="flex items-center text-sm">
@@ -591,7 +487,7 @@ const SmartEditApp: React.FC = () => {
 
                     <button
                       onClick={exportEDL}
-                      className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
                     >
                       <Download className="h-4 w-4 mr-2" />
                       Export EDL
@@ -608,14 +504,14 @@ const SmartEditApp: React.FC = () => {
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-lg font-medium text-gray-900 mb-4">Project Status</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-blue-50 rounded-lg p-4">
+                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                   <p className="text-sm font-medium text-blue-600">Videos</p>
                   <p className="text-2xl font-bold text-blue-900">{videoFiles.length}</p>
                   <p className="text-xs text-blue-600">
                     {totalDuration > 0 && formatDuration(totalDuration)}
                   </p>
                 </div>
-                <div className="bg-green-50 rounded-lg p-4">
+                <div className="bg-green-50 rounded-lg p-4 border border-green-200">
                   <p className="text-sm font-medium text-green-600">Transcription</p>
                   <p className="text-2xl font-bold text-green-900">
                     {transcriptions.length > 0 ? '✓' : '-'}
@@ -624,7 +520,7 @@ const SmartEditApp: React.FC = () => {
                     {transcriptions.length > 0 ? 'Complete' : 'Pending'}
                   </p>
                 </div>
-                <div className="bg-purple-50 rounded-lg p-4">
+                <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
                   <p className="text-sm font-medium text-purple-600">Script</p>
                   <p className="text-2xl font-bold text-purple-900">
                     {generatedScript ? '✓' : '-'}
@@ -642,7 +538,7 @@ const SmartEditApp: React.FC = () => {
                 <h2 className="text-lg font-medium text-gray-900">Activity Log</h2>
               </div>
               <div className="p-6">
-                <div className="bg-gray-50 rounded-lg p-4 h-64 overflow-y-auto">
+                <div className="bg-gray-50 rounded-lg p-4 h-64 overflow-y-auto border">
                   {logs.length === 0 ? (
                     <p className="text-gray-500 text-center py-8">
                       Ready - Add video files to begin
